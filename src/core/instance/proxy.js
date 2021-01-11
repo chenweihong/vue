@@ -3,6 +3,7 @@
 import config from 'core/config'
 import { warn, makeMap, isNative } from '../util/index'
 
+// 声明 initProxy 变量
 let initProxy
 
 if (process.env.NODE_ENV !== 'production') {
@@ -38,9 +39,11 @@ if (process.env.NODE_ENV !== 'production') {
     typeof Proxy !== 'undefined' && isNative(Proxy)
 
   if (hasProxy) {
+    // isBuiltInModifier 函数用来检测是否是内置的修饰符
     const isBuiltInModifier = makeMap('stop,prevent,self,ctrl,shift,alt,meta,exact')
+    // 为 config.keyCodes 设置 set 代理，防止内置修饰符被覆盖
     config.keyCodes = new Proxy(config.keyCodes, {
-      set (target, key, value) {
+      set(target, key, value) {
         if (isBuiltInModifier(key)) {
           warn(`Avoid overwriting built-in modifier in config.keyCodes: .${key}`)
           return false
@@ -53,10 +56,13 @@ if (process.env.NODE_ENV !== 'production') {
   }
 
   const hasHandler = {
-    has (target, key) {
+    has(target, key) {
+      // has 常量是真实经过 in 运算符得来的结果
       const has = key in target
+      // 如果 key 在 allowedGlobals 之内，或者 key 是以下划线 _ 开头的字符串，则为真
       const isAllowed = allowedGlobals(key) ||
         (typeof key === 'string' && key.charAt(0) === '_' && !(key in target.$data))
+      // 如果 has 和 isAllowed 都为假，使用 warnNonPresent 函数打印错误
       if (!has && !isAllowed) {
         if (key in target.$data) warnReservedPrefix(target, key)
         else warnNonPresent(target, key)
@@ -66,7 +72,7 @@ if (process.env.NODE_ENV !== 'production') {
   }
 
   const getHandler = {
-    get (target, key) {
+    get(target, key) {
       if (typeof key === 'string' && !(key in target)) {
         if (key in target.$data) warnReservedPrefix(target, key)
         else warnNonPresent(target, key)
@@ -75,18 +81,25 @@ if (process.env.NODE_ENV !== 'production') {
     }
   }
 
-  initProxy = function initProxy (vm) {
+  // 在这里初始化 initProxy
+  initProxy = function initProxy(vm) {
     if (hasProxy) {
+      // 支持 Proxy 的环境则直接使用 Proxy
       // determine which proxy handler to use
       const options = vm.$options
+      // handlers 可能是 getHandler 也可能是 hasHandler
       const handlers = options.render && options.render._withStripped
         ? getHandler
         : hasHandler
+      // 代理 vm 对象，使用 Proxy 对 vm 做一层代理，代理对象赋值给 vm._renderProxy
+      // 对 vm._renderProxy 的访问，如果有代理那么就会被拦截
       vm._renderProxy = new Proxy(vm, handlers)
     } else {
+      // 不支持 Proxy 的环境，
       vm._renderProxy = vm
     }
   }
 }
 
+// 导出
 export { initProxy }
